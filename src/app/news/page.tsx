@@ -57,6 +57,7 @@ export default async function NewsPage() {
             {fetchedAt.toLocaleTimeString("en-US", {
               hour: "2-digit",
               minute: "2-digit",
+              timeZone: "America/New_York",
               timeZoneName: "short",
             })}
           </div>
