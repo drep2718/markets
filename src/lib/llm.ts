@@ -36,9 +36,14 @@ const IS_REMOTE = !OLLAMA_BASE.includes("localhost") && !OLLAMA_BASE.includes("1
 let spawned: ReturnType<typeof spawn> | null = null;
 let weStarted = false;
 
+const EXTRA_HEADERS: Record<string, string> = IS_REMOTE
+  ? { "ngrok-skip-browser-warning": "1" }
+  : {};
+
 async function isReachable(): Promise<boolean> {
   try {
     const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
+      headers: EXTRA_HEADERS,
       signal: AbortSignal.timeout(2500),
     });
     return res.ok;
@@ -108,7 +113,7 @@ export async function callLLM(opts: LLMOptions): Promise<LLMResult | null> {
 
     const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
       method:  "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...EXTRA_HEADERS },
       body:    JSON.stringify(body),
       signal:  AbortSignal.timeout(180_000),
     });
