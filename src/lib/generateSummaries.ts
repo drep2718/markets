@@ -128,7 +128,11 @@ export async function analyzeNews(
   const totalArticles = Object.values(newsGroups).reduce(
     (sum, items) => sum + items.length, 0
   );
-  if (totalArticles === 0) return FALLBACK;
+  console.log("[analyzeNews] Total articles:", totalArticles, "| Categories:", Object.keys(newsGroups).map(k => `${k}:${newsGroups[k].length}`).join(", "));
+  if (totalArticles === 0) {
+    console.log("[analyzeNews] No articles — returning fallback");
+    return FALLBACK;
+  }
 
   const now = new Date();
   const result = await callLLM({
@@ -145,13 +149,20 @@ export async function analyzeNews(
     json: true,
   });
 
-  if (!result) return FALLBACK;
+  if (!result) {
+    console.error("[analyzeNews] LLM returned null — returning fallback");
+    return FALLBACK;
+  }
+
+  console.log("[analyzeNews] LLM response length:", result.text.length);
 
   try {
     const raw = JSON.parse(result.text) as NewsAnalysis;
+    console.log("[analyzeNews] Parse OK | sentiment:", raw.marketSentiment, "| article analyses:", Object.keys(raw.articleAnalysis ?? {}).length, "| section summaries:", Object.keys(raw.sectionSummaries ?? {}).join(", "));
     raw.sectionSummaries = normalizeSectionSummaries(raw.sectionSummaries ?? {});
     return raw;
-  } catch {
+  } catch (err) {
+    console.error("[analyzeNews] JSON parse failed:", err, "| raw text:", result.text.slice(0, 300));
     return FALLBACK;
   }
 }

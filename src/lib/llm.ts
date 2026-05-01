@@ -16,11 +16,20 @@ export interface LLMResult {
   text: string;
 }
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 const MODEL = "llama-3.1-8b-instant";
 
 export async function callLLM(opts: LLMOptions): Promise<LLMResult | null> {
-  if (!process.env.GROQ_API_KEY) return null;
+  const apiKey = process.env.GROQ_API_KEY;
+  console.log("[Groq] GROQ_API_KEY present:", !!apiKey, "| key prefix:", apiKey?.slice(0, 8) ?? "MISSING");
+
+  if (!apiKey) {
+    console.error("[Groq] No API key — skipping LLM call");
+    return null;
+  }
+
+  const groq = new Groq({ apiKey });
+
+  console.log("[Groq] Sending request | model:", MODEL, "| maxTokens:", opts.maxTokens ?? 6000, "| json:", !!opts.json);
 
   try {
     const res = await groq.chat.completions.create({
@@ -32,7 +41,11 @@ export async function callLLM(opts: LLMOptions): Promise<LLMResult | null> {
     });
 
     const text = res.choices[0]?.message?.content ?? null;
-    if (!text) return null;
+    console.log("[Groq] Response received | text length:", text?.length ?? 0, "| finish_reason:", res.choices[0]?.finish_reason);
+    if (!text) {
+      console.error("[Groq] Empty response content");
+      return null;
+    }
     return { text };
   } catch (err) {
     console.error("[Groq] Call failed:", err);
