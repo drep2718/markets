@@ -54,20 +54,18 @@ function normalizeSectionSummaries(raw: Record<string, string>): Record<string, 
   return result;
 }
 
-function formatAge(dateStr: string): string {
-  const h = Math.floor((Date.now() - new Date(dateStr).getTime()) / 3600000);
-  if (h < 1) return "< 1h ago";
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+interface IndexedArticle {
+  index: number;
+  title: string;
+  category: string;
 }
 
-function buildPrompt(newsGroups: Record<string, NewsItem[]>, now: Date): string {
-  const dateStr = now.toLocaleDateString("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
-  const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "2-digit", minute: "2-digit", timeZoneName: "short",
-  });
+function buildPromptAndIndex(newsGroups: Record<string, NewsItem[]>): {
+  prompt: string;
+  indexMap: IndexedArticle[];
+} {
+  const indexMap: IndexedArticle[] = [];
+  let counter = 1;
 
   const categoryNames = Object.keys(newsGroups)
     .filter((cat) => newsGroups[cat].length > 0)
@@ -76,50 +74,44 @@ function buildPrompt(newsGroups: Record<string, NewsItem[]>, now: Date): string 
   const sections = Object.entries(newsGroups)
     .filter(([, items]) => items.length > 0)
     .map(([category, items]) => {
-      const list = items.slice(0, 5).map((item, i) => {
-        const snippet = item.snippet?.trim().slice(0, 100) || "(no snippet)";
-        return `  [${i + 1}] "${item.title}" — ${snippet}`;
+      const list = items.slice(0, 4).map((item) => {
+        const idx = counter++;
+        indexMap.push({ index: idx, title: item.title, category });
+        const snippet = item.snippet?.trim().slice(0, 80) || "";
+        return `  [${idx}] ${item.title}${snippet ? ` — ${snippet}` : ""}`;
       }).join("\n");
       return `### ${category}\n${list}`;
     })
     .join("\n\n");
 
-  return `Today is ${dateStr} at ${timeStr}.
+  const prompt = `You are a senior energy market analyst. Summarize today's energy news.
 
-You are a senior energy market analyst summarizing TODAY'S breaking news.
+Categories: ${categoryNames}
 
-CRITICAL RULES:
-- Base EVERY summary solely on the headlines and snippets below. Do NOT invent details.
-- Reference specific events, companies, countries, or price moves from the articles.
-- The sectionSummaries keys MUST be spelled EXACTLY as shown: ${categoryNames}
-- Generate a sectionSummary for EVERY category listed, even if it only has 1-2 articles.
-
-Return this JSON structure:
-
+Return ONLY this JSON (no other text):
 {
-  "marketOverview": "<2-3 sentences on TODAY's biggest energy market developments — reference specific events, prices, companies from the headlines>",
-  "marketSentiment": "<bullish | bearish | neutral | mixed>",
+  "marketOverview": "2-3 sentences on the biggest developments today",
+  "marketSentiment": "bullish|bearish|neutral|mixed",
   "sectionSummaries": {
-    "Crude Oil": "<2-3 sentences on crude oil markets today>",
-    "Natural Gas": "<2-3 sentences on natural gas markets today>",
-    "Renewables": "<2-3 sentences on renewables today>",
-    "Power & Utilities": "<2-3 sentences on power and utilities today>",
-    "Policy & Regulation": "<2-3 sentences on energy policy and regulation today>",
-    "Energy Markets": "<2-3 sentences on broader energy market themes today>"
+    "Crude Oil": "2 sentences",
+    "Natural Gas": "2 sentences",
+    "Renewables": "2 sentences",
+    "Power & Utilities": "2 sentences",
+    "Policy & Regulation": "2 sentences",
+    "Energy Markets": "2 sentences"
   },
-  "articleAnalysis": {
-    "<exact article title>": {
-      "summary": "<1-2 sentences: what happened and why it matters for energy prices>",
-      "importance": <1-10>
-    }
+  "articles": {
+    "1": {"summary": "1 sentence", "importance": 7},
+    "2": {"summary": "1 sentence", "importance": 5}
   }
 }
 
-importance: 10=OPEC decision/major supply shock, 7-9=significant disruption or price move, 4-6=notable policy/corp news, 1-3=minor.
-Include EVERY article title exactly as written.
+Use numeric keys (1, 2, 3...) for articles. importance: 1-10.
 
-TODAY'S NEWS:
+NEWS:
 ${sections}`;
+
+  return { prompt, indexMap };
 }
 
 export async function analyzeNews(
@@ -128,41 +120,52 @@ export async function analyzeNews(
   const totalArticles = Object.values(newsGroups).reduce(
     (sum, items) => sum + items.length, 0
   );
-  console.log("[analyzeNews] Total articles:", totalArticles, "| Categories:", Object.keys(newsGroups).map(k => `${k}:${newsGroups[k].length}`).join(", "));
-  if (totalArticles === 0) {
-    console.log("[analyzeNews] No articles — returning fallback");
-    return FALLBACK;
-  }
+  console.log("[analyzeNews] Total articles:", totalArticles);
+  if (totalArticles === 0) return FALLBACK;
 
-  const now = new Date();
+  const { prompt, indexMap } = buildPromptAndIndex(newsGroups);
+  console.log("[analyzeNews] Sending", indexMap.length, "articles to Groq");
+
   const result = await callLLM({
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a senior energy market analyst. Write tight, specific summaries based ONLY on the articles provided. Never invent details. Respond only with valid JSON.",
-      },
-      { role: "user", content: buildPrompt(newsGroups, now) },
-    ],
-    maxTokens: 2500,
-    temperature: 0.2,
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 1500,
+    temperature: 0.1,
     json: true,
   });
 
   if (!result) {
-    console.error("[analyzeNews] LLM returned null — returning fallback");
+    console.error("[analyzeNews] LLM returned null");
     return FALLBACK;
   }
 
-  console.log("[analyzeNews] LLM response length:", result.text.length);
+  console.log("[analyzeNews] Response length:", result.text.length);
 
   try {
-    const raw = JSON.parse(result.text) as NewsAnalysis;
-    console.log("[analyzeNews] Parse OK | sentiment:", raw.marketSentiment, "| article analyses:", Object.keys(raw.articleAnalysis ?? {}).length, "| section summaries:", Object.keys(raw.sectionSummaries ?? {}).join(", "));
-    raw.sectionSummaries = normalizeSectionSummaries(raw.sectionSummaries ?? {});
-    return raw;
+    const raw = JSON.parse(result.text) as {
+      marketOverview: string;
+      marketSentiment: string;
+      sectionSummaries: Record<string, string>;
+      articles: Record<string, { summary: string; importance: number }>;
+    };
+
+    const articleAnalysis: Record<string, ArticleAnalysis> = {};
+    for (const { index, title } of indexMap) {
+      const entry = raw.articles?.[String(index)];
+      if (entry) {
+        articleAnalysis[title] = { summary: entry.summary, importance: entry.importance };
+      }
+    }
+
+    console.log("[analyzeNews] OK | sentiment:", raw.marketSentiment, "| articles mapped:", Object.keys(articleAnalysis).length);
+
+    return {
+      marketOverview: raw.marketOverview ?? "",
+      marketSentiment: (raw.marketSentiment ?? "neutral") as NewsAnalysis["marketSentiment"],
+      sectionSummaries: normalizeSectionSummaries(raw.sectionSummaries ?? {}),
+      articleAnalysis,
+    };
   } catch (err) {
-    console.error("[analyzeNews] JSON parse failed:", err, "| raw text:", result.text.slice(0, 300));
+    console.error("[analyzeNews] JSON parse failed:", err, "| raw:", result.text.slice(0, 200));
     return FALLBACK;
   }
 }
