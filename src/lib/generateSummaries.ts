@@ -76,10 +76,10 @@ function buildPrompt(newsGroups: Record<string, NewsItem[]>, now: Date): string 
   const sections = Object.entries(newsGroups)
     .filter(([, items]) => items.length > 0)
     .map(([category, items]) => {
-      const list = items.slice(0, 12).map((item, i) => {
-        const snippet = item.snippet?.trim().slice(0, 220) || "(no snippet)";
-        return `  [${i + 1}] (${formatAge(item.pubDate)}) "${item.title}"\n       Snippet: ${snippet}`;
-      }).join("\n\n");
+      const list = items.slice(0, 5).map((item, i) => {
+        const snippet = item.snippet?.trim().slice(0, 100) || "(no snippet)";
+        return `  [${i + 1}] "${item.title}" — ${snippet}`;
+      }).join("\n");
       return `### ${category}\n${list}`;
     })
     .join("\n\n");
@@ -144,7 +144,7 @@ export async function analyzeNews(
       },
       { role: "user", content: buildPrompt(newsGroups, now) },
     ],
-    maxTokens: 6000,
+    maxTokens: 2500,
     temperature: 0.2,
     json: true,
   });
