@@ -17,6 +17,7 @@ export default function MarketOverview({ overview, sentiment, lastUpdated }: Pro
   const timeStr = lastUpdated.toLocaleTimeString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "America/New_York",
     timeZoneName: "short",
   });
 
@@ -38,10 +39,7 @@ export default function MarketOverview({ overview, sentiment, lastUpdated }: Pro
         <p className="text-base leading-relaxed">{overview}</p>
       ) : (
         <p className="text-sm opacity-60 italic">
-          AI analysis unavailable — ensure Ollama is running with{" "}
-          <code className="font-mono text-xs bg-black/5 px-1">ollama serve</code>
-          {" "}and model{" "}
-          <code className="font-mono text-xs bg-black/5 px-1">llama3.2</code> is pulled.
+          AI analysis unavailable — ensure GROQ_API_KEY is set in Vercel environment variables.
         </p>
       )}
     </section>
