@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { modules, getTotalTime, getModuleTime } from "@/lib/lessons";
+import LessonCheck from "@/components/LearnProgress";
 
 export default function LearnPage() {
   const totalMinutes = getTotalTime();
@@ -42,6 +43,7 @@ export default function LearnPage() {
                     className="group flex items-center justify-between py-3 px-4 -mx-4 rounded hover:bg-highlight transition-colors"
                   >
                     <div className="flex items-center gap-3">
+                      <LessonCheck lessonKey={`${mod.id}/${lesson.id}`} />
                       <span className="text-sm text-muted w-6">
                         {index + 1}.{li + 1}
                       </span>

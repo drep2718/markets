@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { modules, getLesson } from "@/lib/lessons";
+import LessonComplete from "@/components/LessonComplete";
 
 export function generateStaticParams() {
   const params: { moduleId: string; lessonId: string }[] = [];
@@ -168,7 +169,11 @@ export default async function LessonPage({
 
       <article className="article-body">{renderMarkdown(lesson.content)}</article>
 
-      <nav className="mt-12 pt-8 border-t border-border flex items-center justify-between">
+      <div className="mt-10 pt-8 border-t border-border">
+        <LessonComplete lessonKey={`${moduleId}/${lessonId}`} />
+      </div>
+
+      <nav className="mt-8 flex items-center justify-between">
         <div>
           {prevLesson ? (
             <Link
