@@ -1,16 +1,11 @@
-import Link from "next/link";
 import { fetchAllNews, NewsItem } from "@/lib/fetchNews";
-import { analyzeNews } from "@/lib/generateSummaries";
-import { rankArticles } from "@/lib/rankNews";
 import { getUpcomingEvents } from "@/lib/events";
 import NewsHero from "@/components/NewsHero";
 import NewsCard from "@/components/NewsCard";
-import MarketOverview from "@/components/MarketOverview";
-import SectionSummary from "@/components/SectionSummary";
 import EventsCalendar from "@/components/EventsCalendar";
+import { rankArticles } from "@/lib/rankNews";
 
-export const revalidate = 3600;
-export const maxDuration = 300;
+export const revalidate = 0;
 
 const CATEGORIES = [
   "Crude Oil",
@@ -36,28 +31,16 @@ export default async function NewsPage() {
     grouped[cat] = news.filter((n) => n.category === cat);
   }
 
-  const [analysis, upcomingEvents] = await Promise.all([
-    analyzeNews(grouped),
-    Promise.resolve(getUpcomingEvents(8)),
-  ]);
-
   const rankedGroups: Record<string, NewsItem[]> = {};
   for (const cat of CATEGORIES) {
-    rankedGroups[cat] = rankArticles(grouped[cat] ?? [], analysis.articleAnalysis);
+    rankedGroups[cat] = rankArticles(grouped[cat] ?? []);
   }
 
   const heroItems = CATEGORIES
     .flatMap((cat) => rankedGroups[cat] ?? [])
-    .sort((a, b) => {
-      const aScore = analysis.articleAnalysis[a.title]?.importance ?? 5;
-      const bScore = analysis.articleAnalysis[b.title]?.importance ?? 5;
-      return bScore - aScore;
-    })
     .slice(0, 3);
 
-  const aiSummaryMap = Object.fromEntries(
-    Object.entries(analysis.articleAnalysis).map(([title, a]) => [title, a.summary])
-  );
+  const upcomingEvents = getUpcomingEvents(8);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -65,7 +48,7 @@ export default async function NewsPage() {
         <div>
           <h1 className="font-serif text-3xl font-bold">Energy Markets</h1>
           <p className="text-sm text-muted mt-1">
-            Latest headlines across oil, gas, renewables, and energy policy — refreshed every hour
+            Latest headlines across oil, gas, renewables, and energy policy
           </p>
         </div>
         <div className="text-xs text-muted text-right">
@@ -80,30 +63,7 @@ export default async function NewsPage() {
         </div>
       </div>
 
-      <Link
-        href="/report"
-        className="group flex items-center justify-between mb-6 border border-foreground px-5 py-4 hover:bg-foreground hover:text-background transition-colors"
-      >
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1 opacity-60">
-            Today&apos;s Full Intelligence Report
-          </p>
-          <p className="font-serif text-lg font-bold leading-snug">
-            Deep-dive analysis: all markets, cross-market dynamics, key risks &amp; watchlist
-          </p>
-        </div>
-        <span className="text-2xl ml-4 group-hover:translate-x-1 transition-transform shrink-0">
-          &rarr;
-        </span>
-      </Link>
-
       <EventsCalendar events={upcomingEvents} />
-
-      <MarketOverview
-        overview={analysis.marketOverview}
-        sentiment={analysis.marketSentiment}
-        lastUpdated={fetchedAt}
-      />
 
       {news.length === 0 ? (
         <div className="text-center py-20 text-muted">
@@ -112,7 +72,7 @@ export default async function NewsPage() {
         </div>
       ) : (
         <>
-          <NewsHero items={heroItems} aiSummaries={aiSummaryMap} />
+          <NewsHero items={heroItems} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-8 gap-y-10">
             {CATEGORIES.map((cat) => {
               const items = rankedGroups[cat];
@@ -122,15 +82,8 @@ export default async function NewsPage() {
                   <h2 className="font-serif text-xl font-bold border-b-2 border-foreground pb-2 mb-0">
                     {cat}
                   </h2>
-                  <SectionSummary summary={analysis.sectionSummaries[cat] ?? ""} />
                   {items.slice(0, 10).map((item, i) => (
-                    <NewsCard
-                      key={i}
-                      item={item}
-                      rank={i + 1}
-                      aiSummary={analysis.articleAnalysis[item.title]?.summary}
-                      importance={analysis.articleAnalysis[item.title]?.importance}
-                    />
+                    <NewsCard key={i} item={item} rank={i + 1} />
                   ))}
                 </div>
               );
