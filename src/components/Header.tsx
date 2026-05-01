@@ -50,6 +50,16 @@ export default function Header() {
           >
             Learn
           </Link>
+          <Link
+            href="/report"
+            className={`text-sm font-medium tracking-wide uppercase pb-1 border-b-2 transition-colors ${
+              isActive("/report")
+                ? "border-foreground text-foreground"
+                : "border-transparent text-muted hover:text-foreground"
+            }`}
+          >
+            Daily Report
+          </Link>
         </nav>
       </div>
     </header>

@@ -10,10 +10,12 @@ function timeAgo(dateStr: string): string {
 
 interface Props {
   item: NewsItem;
+  aiSummary?: string;
+  importance?: number;
   rank?: number;
 }
 
-export default function NewsCard({ item, rank }: Props) {
+export default function NewsCard({ item, aiSummary, importance, rank }: Props) {
   const impactColor = item.marketImpact.startsWith("Bullish")
     ? "bg-green-50 text-green-800 border-green-200"
     : item.marketImpact.startsWith("Bearish")
@@ -34,14 +36,21 @@ export default function NewsCard({ item, rank }: Props) {
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <h3 className="font-serif text-base font-semibold leading-snug group-hover:underline decoration-1 underline-offset-4">
-            {item.title}
-          </h3>
-          {item.snippet && (
-            <p className="text-sm text-muted mt-1.5 leading-relaxed line-clamp-2">
-              {item.snippet}
-            </p>
-          )}
+          <div className="flex items-start justify-between gap-3">
+            <h3 className="font-serif text-base font-semibold leading-snug group-hover:underline decoration-1 underline-offset-4">
+              {item.title}
+            </h3>
+            {importance !== undefined && importance >= 7 && (
+              <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-foreground/60">
+                #{importance}
+              </span>
+            )}
+          </div>
+          {aiSummary ? (
+            <p className="text-sm text-muted mt-1.5 leading-relaxed line-clamp-2">{aiSummary}</p>
+          ) : item.snippet ? (
+            <p className="text-sm text-muted mt-1.5 leading-relaxed line-clamp-2">{item.snippet}</p>
+          ) : null}
           <div className="flex items-center gap-3 mt-2 text-xs text-muted flex-wrap">
             <span className="font-medium text-foreground">{item.source}</span>
             <span>|</span>
