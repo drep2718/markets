@@ -8,7 +8,7 @@ import MarketOverview from "@/components/MarketOverview";
 import SectionSummary from "@/components/SectionSummary";
 import EventsCalendar from "@/components/EventsCalendar";
 
-export const revalidate = 0;
+export const revalidate = 300; // regenerate at most every 5 minutes
 
 const CATEGORIES = [
   "Crude Oil",
