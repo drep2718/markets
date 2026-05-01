@@ -9,19 +9,9 @@ interface Props {
   overview: string;
   sentiment: string;
   lastUpdated: Date;
-  /** true if at least one LLM provider is configured */
-  hasApiKey: boolean;
-  /** true if GROQ_API_KEY is set (helps distinguish "not configured" vs "rate limited") */
-  groqKeySet?: boolean;
 }
 
-export default function MarketOverview({
-  overview,
-  sentiment,
-  lastUpdated,
-  hasApiKey,
-  groqKeySet = false,
-}: Props) {
+export default function MarketOverview({ overview, sentiment, lastUpdated }: Props) {
   const style = SENTIMENT_STYLES[sentiment] ?? SENTIMENT_STYLES.neutral;
 
   const timeStr = lastUpdated.toLocaleTimeString("en-US", {
@@ -30,33 +20,8 @@ export default function MarketOverview({
     timeZoneName: "short",
   });
 
-  function noAIMessage() {
-    if (!hasApiKey && !groqKeySet) {
-      return (
-        <p className="text-sm opacity-70 italic">
-          AI analysis requires Ollama (local) or a Groq API key.{" "}
-          Start <code className="font-mono text-xs bg-black/5 px-1">ollama serve</code>{" "}
-          or add <code className="font-mono text-xs bg-black/5 px-1">GROQ_API_KEY</code>{" "}
-          to <code className="font-mono text-xs bg-black/5 px-1">.env.local</code>.
-        </p>
-      );
-    }
-    if (groqKeySet && !overview) {
-      return (
-        <p className="text-sm opacity-70 italic">
-          Groq rate limit reached (100k tokens/day). Start{" "}
-          <code className="font-mono text-xs bg-black/5 px-1">ollama serve</code>{" "}
-          locally for unlimited analysis, or wait until tomorrow.
-        </p>
-      );
-    }
-    return (
-      <p className="text-sm opacity-70 italic">Analyzing current market conditions...</p>
-    );
-  }
-
   return (
-    <section className={`border rounded-none mb-8 p-5 ${style.classes}`}>
+    <section className={`border mb-8 p-5 ${style.classes}`}>
       <div className="flex items-start justify-between gap-4 mb-3">
         <div className="flex items-center gap-3">
           <h2 className="font-serif text-lg font-bold uppercase tracking-wide">
@@ -72,7 +37,12 @@ export default function MarketOverview({
       {overview ? (
         <p className="text-base leading-relaxed">{overview}</p>
       ) : (
-        noAIMessage()
+        <p className="text-sm opacity-60 italic">
+          AI analysis unavailable — ensure Ollama is running with{" "}
+          <code className="font-mono text-xs bg-black/5 px-1">ollama serve</code>
+          {" "}and model{" "}
+          <code className="font-mono text-xs bg-black/5 px-1">llama3.2</code> is pulled.
+        </p>
       )}
     </section>
   );
